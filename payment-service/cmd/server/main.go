@@ -1,7 +1,7 @@
 package main
 
 import (
-	"user-service/internal/config"
+	"payment-service/internal/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -19,7 +19,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	r := gin.Default()
+
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",
