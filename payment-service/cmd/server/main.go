@@ -1,24 +1,29 @@
 package main
 
 import (
+	"log"
+	"payment-service/internal/bootstrap"
 	"payment-service/internal/config"
+	"payment-service/internal/logger"
+	"payment-service/internal/models"
+	"payment-service/internal/repositories"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func main() {
 	config.LoadConfig()
 	addr := viper.GetString("addr")
-	dsn := viper.GetString("dsn")
 	//port := viper.GetInt("port")
-
-	_, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := bootstrap.InitDB()
 	if err != nil {
-		panic(err)
+		log.Fatalln(models.ErrFailedConnectDB)
 	}
+	bootstrap.Migration(db)
+	paymentRepo := repositories.NewPaymentRepository(db)
+
+	logger.InitLogger()
 
 	r := gin.Default()
 
