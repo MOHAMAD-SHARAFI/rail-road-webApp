@@ -23,3 +23,17 @@ type FeeStructure struct {
 	MinFee     float64
 	CreatedAt  time.Time
 }
+
+type FeeStructure struct {
+	ID         uint `gorm:"primary_key"`
+	Percentage float64
+	MinFee     float64
+	CreatedAt  time.Time
+}
+
+type FeeStructure struct {
+	ID         uint `gorm:"primary_key"`
+	Percentage float64
+	MinFee     float64
+	CreatedAt  time.Time
+}

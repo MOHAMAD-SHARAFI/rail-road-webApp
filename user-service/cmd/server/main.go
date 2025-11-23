@@ -4,9 +4,8 @@ import (
 	"log"
 	"user-service/internal/bootstrap"
 	"user-service/internal/config"
-	"user-service/internal/logger"
-	"user-service/internal/models"
-	"user-service/internal/repositories"
+
+	"user-service/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -18,15 +17,11 @@ func main() {
 	//port := viper.GetInt("port")
 	db, err := bootstrap.InitDB()
 	if err != nil {
-		log.Fatalln(models.ErrFailedConnectDB)
+		log.Fatal("Failed to initialize database", err)
 	}
-	err = bootstrap.MigrateDB(db)
-	if err != nil {
-		log.Fatalln(models.ErrFailedMigrateDB)
-	}
-	userRepo := repositories.NewUSerRepository(db)
 
 	logger.InitLogger()
+
 	r := gin.Default()
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{

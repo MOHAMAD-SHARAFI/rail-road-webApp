@@ -6,6 +6,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Config struct {
+	DatabaseURL string
+	Port        string
+	JWTSecret   string
+}
+
 func LoadConfig() {
 	viper.AddConfigPath("./internal/config")
 	viper.SetConfigName("app")

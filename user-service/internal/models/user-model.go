@@ -8,14 +8,13 @@ import (
 
 type User struct {
 	gorm.Model
-	FirstName    string `gorm:"uniqueIndex;not null"`
-	LastName     string `gorm:"uniqueIndex;not null"`
+	UserName     string `gorm:"uniqueIndex"`
 	Email        string `gorm:"uniqueIndex;not null"`
-	PasswordHash string `gorm:"not null"`
+	PasswordHash string
 	PhoneNumber  string `gorm:"uniqueIndex;not null"`
 }
 
-type PassworResetToken struct {
+type PasswordResetToken struct {
 	ID        uint   `gorm:"primary_key"`
 	UserID    uint   `gorm:"not null"`
 	Token     string `gorm:"not null"`
