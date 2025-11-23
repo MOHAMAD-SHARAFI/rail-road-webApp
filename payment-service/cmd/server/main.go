@@ -4,9 +4,7 @@ import (
 	"log"
 	"payment-service/internal/bootstrap"
 	"payment-service/internal/config"
-	"payment-service/internal/logger"
 	"payment-service/internal/models"
-	"payment-service/internal/repositories"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -20,10 +18,10 @@ func main() {
 	if err != nil {
 		log.Fatalln(models.ErrFailedConnectDB)
 	}
-	bootstrap.Migration(db)
-	paymentRepo := repositories.NewPaymentRepository(db)
-
-	logger.InitLogger()
+	err = bootstrap.Migration(db)
+	if err != nil {
+		log.Fatalln(models.ErrFailedMigrateDB)
+	}
 
 	r := gin.Default()
 

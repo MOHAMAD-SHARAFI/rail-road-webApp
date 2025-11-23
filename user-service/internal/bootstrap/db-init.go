@@ -1,31 +1,28 @@
 package bootstrap
 
 import (
-	"log"
 	"user-service/internal/models"
 
-	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
 
-func InitDB() (*gorm.DB, error) {
+func InitDB(connectionString string) (*gorm.DB, error) {
 	var db *gorm.DB
-	dsn := viper.GetString("dsn")
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix: "T_",
 		}})
 
 	if err != nil {
-		log.Fatalf("failed to connect database: %v", models.ErrFailedConnectDB)
+		return nil, err
 	}
-	return db, nil
-}
-func MigrateDB(db *gorm.DB) error {
-	err := db.AutoMigrate(&models.User{})
+	err = db.AutoMigrate(models.User{}, models.PassworResetToken{})
 	if err != nil {
-		log.Fatalf("failed to migrate database: %v", models.ErrFailedMigrateDB)
+		return nil, err
 	}
+
+	return db, nil
+
 }

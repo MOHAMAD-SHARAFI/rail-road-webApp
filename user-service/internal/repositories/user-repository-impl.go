@@ -2,14 +2,12 @@ package repositories
 
 import (
 	"context"
-	"errors"
-	"log"
-	"time"
+
 	"user-service/internal/models"
+	"user-service/pkg/logger"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"user-service/internal/logger"
 )
 
 type userRepository struct {
@@ -20,163 +18,131 @@ func NewUSerRepository(db *gorm.DB) UserRepository {
 	return &userRepository{db: db}
 }
 
-func (r userRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
-	var user models.User
-	if email == "" {
-		return nil, errors.New("email must be filled")
+func (r userRepository) Create(ctx context.Context, user *models.User) error {
+	result := r.db.WithContext(ctx).Create(user)
+	if result.Error != nil {
+		logger.Log.WithFields(logrus.Fields{
+			"Error :":       "Cannot Create User",
+			"User Info :":   user,
+			"Operation :":   "CreateUser",
+			"ErrorDetail :": result.Error,
+		}).Error("failed to create user")
+		return result.Error
 	}
 
-	err := r.db.WithContext(ctx).Where("email= ?", models.User{Email: email}).First(&user)
-	if err != nil {
-		log.Println("cannot find user with this Email", err)
+	logger.Log.WithFields(logrus.Fields{
+		"Info :":      "User Created Successfully",
+		"Operation :": "CreateUser",
+		"email :":     user.Email,
+		"firstName :": user.UserName,
+		"ID :":        user.ID,
+	}).Info("User Created Successfully")
+	return nil
+}
+
+func (r userRepository) FindByUserName(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+	result := r.db.WithContext(ctx).Where("username = ?", username).First(&user)
+	if result.Error != nil {
+		logger.Log.WithFields(logrus.Fields{
+			"Error :":       "Cannot Find User",
+			"User Info :":   username,
+			"Operation :":   "FindByUserName",
+			"ErrorDetail :": result.Error,
+		}).Error("failed to find user by username")
+		return nil, result.Error
 	}
+
+	logger.Log.WithFields(logrus.Fields{
+		"Info :":      "User Find Successfully",
+		"Operation :": "FindByUserName",
+		"username :":  models.User{UserName: username},
+	}).Info("User Find Successfully")
 
 	return &user, nil
 }
 
-func (r userRepository) Create(ctx context.Context, user *models.User) error {
-	err := r.db.WithContext(ctx).Create(user)
-	if err != nil {
+func (r userRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
+	if result.Error != nil {
 		logger.Log.WithFields(logrus.Fields{
-			"email":     user.Email,
-			"firstName": user.FirstName,
-			"lastName":  user.LastName,
-			"ID":        user.ID,
-		})
+			"Error :":       "Cannot Find User",
+			"User Email :":  email,
+			"Operation :":   "FindByEmail",
+			"ErrorDetail :": result.Error,
+		}).Error("failed to find user by email")
 	}
 
-	return nil
+	logger.Log.WithFields(logrus.Fields{
+		"Info :":      "User Find Successfully",
+		"Operation :": "FindByEmail",
+		"email :":     email,
+		"firstName :": user.UserName,
+	}).Info("User Find Successfully")
+	return &user, nil
+}
+
+func (r userRepository) FindByID(ctx context.Context, id uint) (*models.User, error) {
+	var user models.User
+	result := r.db.WithContext(ctx).First(&user, id)
+	if result.Error != nil {
+		logger.Log.WithFields(logrus.Fields{
+			"Error :":       "Cannot Find User",
+			"User ID :":     id,
+			"Operation :":   "FindByID",
+			"ErrorDetail :": result.Error,
+		}).Error("failed to find user by id")
+	}
+
+	logger.Log.WithFields(logrus.Fields{
+		"Info :":      "User Find Successfully",
+		"Operation :": "FindByID",
+		"ID :":        id,
+		"UserName :":  user.UserName,
+	}).Info("User Find Successfully")
+	return &user, nil
 }
 
 func (r userRepository) Update(ctx context.Context, user *models.User) error {
-	err := r.db.WithContext(ctx).Save(&user)
-	if err != nil {
+	result := r.db.WithContext(ctx).Save(user)
+	if result.Error != nil {
 		logger.Log.WithFields(logrus.Fields{
-			"Operation":   "Update",
-			"Error":       "cannot update user",
-			"ErrorDetail": err,
-		})
-	} else {
-		logger.Log.WithFields(logrus.Fields{
-			"Operation": "Update",
-			"UpdatedFields": logrus.Fields{
-				"email":        user.Email,
-				"firstName":    user.FirstName,
-				"lastName":     user.LastName,
-				"ID":           user.ID,
-				"PhoneNumber ": user.PhoneNumber,
-			},
-		})
+			"Error :":       "Cannot Update User",
+			"User Info :":   user,
+			"Operation :":   "UpdateUser",
+			"ErrorDetail :": result.Error,
+		}).Error("failed to update user")
 	}
 
-	return nil
+	logger.Log.WithFields(logrus.Fields{
+		"Info :":      "User Updated Successfully",
+		"Operation :": "UpdateUser",
+		"email :":     user.Email,
+		"UserName :":  user.UserName,
+	}).Info("User Updated Successfully")
+	return result.Error
 }
 
-func (r userRepository) GetByID(ctx context.Context, id *uint) (*models.User, error) {
-	if *id == nil || id == 0 {
-		err := errors.New("id cannot be 0")
-		logger.Log.WithFields(logrus.Fields{
-			"Operation":   "GetByID",
-			"Error":       "cannot find user because id is zero or negative",
-			"ErrorDetail": err,
-		})
-
-	}
-
+func (r userRepository) Delete(ctx context.Context, id uint) error {
 	var user models.User
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&user)
-	if err != nil {
+	result := r.db.WithContext(ctx).Delete(&user, id)
+	if result.Error != nil {
 		logger.Log.WithFields(logrus.Fields{
-			"Operation":   "GetByID",
-			"ID":          id,
-			"Error":       "cannot find user",
-			"ErrorDetail": err,
-		})
-	} else {
-		logger.Log.WithFields(logrus.Fields{
-			"Operation":   "GetByID",
-			"ID":          id,
-			"FirstName":   user.FirstName,
-			"LastName":    user.LastName,
-			"PhoneNumber": user.PhoneNumber,
-		})
+			"Error :":       "Cannot Delete User",
+			"User ID :":     id,
+			"Operation :":   "Delete",
+			"ErrorDetail :": result.Error,
+		}).Error("failed to delete user")
+		return result.Error
 	}
 
-	return &user, nil
-}
-
-func (r userRepository) GetByPhoneNumber(ctx context.Context, phone string) (*models.User, error) {
-	var user models.User
-	if phone == "" || phone == "0" {
-		return nil, logger.Log.WithFields(logrus.Fields{
-			"Operation":   "GetByPhoneNumber",
-			"PhoneNumber": phone,
-			"Error":       "cannot find user Because it's phone number is zero or empty",
-		})
-	}
-
-	err := r.db.WithContext(ctx).Where("phone = ?", models.User{PhoneNumber: phone}).First(&user)
-	if err != nil {
-		logger.Log.WithFields(logrus.Fields{
-			"Operation":   "GetByPhoneNumber",
-			"PhoneNumber": phone,
-			"Error":       "cannot find user",
-			"ErrorDetail": err,
-		})
-	} else {
-		logger.Log.WithFields(logrus.Fields{
-			"Operation":   "GetByPhoneNumber",
-			"PhoneNumber": phone,
-			"FirstName":   user.FirstName,
-			"LastName":    user.LastName,
-		})
-	}
-
-	return &user, nil
-}
-
-func (r userRepository) GetValidPasswordResetToken(ctx context.Context, userID uint, token string) (*models.PassworResetToken, error) {
-	err := r.db.WithContext(ctx).Where("user_id = ? AND token=? AND expires_at > ?", userID, token, time.Now()).First(&token)
-	if err != nil {
-		log.Fatalf("your token,claims is not valid %v \n", models.ErrTokenNotValid)
-	}
-
-	return &models.PassworResetToken{Token: token}, nil
-}
-
-func (r userRepository) CreatePasswordResetToken(ctx context.Context, token *models.PassworResetToken) error {
-	err := r.db.WithContext(ctx).Create(token)
-	if err != nil {
-		logger.Log.WithFields(logrus.Fields{
-			"user_id":   token.UserID,
-			"operation": "CreatePasswordResetToken",
-			"Error":     "failed to create token",
-		}).Error(err)
-	} else {
-		logger.Log.WithFields(logrus.Fields{
-			"user_id":   token.UserID,
-			"Token":     token.Token,
-			"Operation": "CreatePasswordResetToken",
-			"CreatedAt": token.CreatedAt,
-		})
-	}
-
+	logger.Log.WithFields(logrus.Fields{
+		"Info :":      "User Deleted Successfully",
+		"Operation :": "Delete",
+		"user-id :":   id,
+	}).Info("User Deleted Successfully")
 	return nil
 }
 
-func (r userRepository) DeletePasswordResetToken(ctx context.Context, tokenId uint) error {
-	err := r.db.WithContext(ctx).Where("token_id = ?", tokenId).Delete(&models.PassworResetToken{})
-	if err != nil {
-		logger.Log.WithFields(logrus.Fields{
-			"Operation": "DeletePasswordResetToken",
-			"Error":     "failed to delete token",
-		})
-	} else {
-		logger.Log.WithFields(logrus.Fields{
-			"Operation": "DeletePasswordResetToken",
-			"Log":       "token succesfully deleted",
-		})
-	}
-
-	return nil
-}
+var _ UserRepository = (*userRepository)(nil)

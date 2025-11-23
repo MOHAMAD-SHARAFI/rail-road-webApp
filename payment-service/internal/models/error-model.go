@@ -10,5 +10,4 @@ var (
 	ErrFailedCreatePayment = errors.New("could not create payment")
 	ErrUpdateFailed        = errors.New("could not update payment")
 	ErrPaymentNotFound     = errors.New("payment not found")
-	ErrCantGetFeeStructure = errors.New("can't get fee structure")
 )
