@@ -9,7 +9,6 @@ import (
 )
 
 func InitDB(connectionString string) (*gorm.DB, error) {
-	var db *gorm.DB
 	db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix: "T_",
@@ -18,7 +17,7 @@ func InitDB(connectionString string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(models.User{}, models.PassworResetToken{})
+	err = db.AutoMigrate(models.User{}, models.PasswordResetToken{})
 	if err != nil {
 		return nil, err
 	}

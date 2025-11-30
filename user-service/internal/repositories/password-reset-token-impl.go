@@ -19,7 +19,7 @@ func NewTokenRepository(db *gorm.DB) TokenRepository {
 	return &tokenRepository{db: db}
 }
 
-func (t *tokenRepository) CreatePasswordResetToken(ctx context.Context, token *models.PassworResetToken) error {
+func (t *tokenRepository) CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error {
 	result := t.db.WithContext(ctx).Create(token)
 	if result.Error != nil {
 		logger.Log.WithFields(logrus.Fields{
@@ -36,8 +36,8 @@ func (t *tokenRepository) CreatePasswordResetToken(ctx context.Context, token *m
 	return result.Error
 }
 
-func (t *tokenRepository) FindValidPasswordResetToken(ctx context.Context, userid uint, token string) (*models.PassworResetToken, error) {
-	var passwordResetToken models.PassworResetToken
+func (t *tokenRepository) FindValidPasswordResetToken(ctx context.Context, userid uint, token string) (*models.PasswordResetToken, error) {
+	var passwordResetToken models.PasswordResetToken
 	validToken := t.db.WithContext(ctx).Where("user_id = ? AND token = ? AND expires_at > ?", userid, token, time.Now()).First(&passwordResetToken)
 	if validToken.Error != nil {
 		logger.Log.WithFields(logrus.Fields{
@@ -55,7 +55,7 @@ func (t *tokenRepository) FindValidPasswordResetToken(ctx context.Context, useri
 }
 
 func (t *tokenRepository) DeletePasswordResetToken(ctx context.Context, tokenID uint) error {
-	var token models.PassworResetToken
+	var token models.PasswordResetToken
 	result := t.db.WithContext(ctx).Delete(&token, tokenID)
 	if result.Error != nil {
 		logger.Log.WithFields(logrus.Fields{

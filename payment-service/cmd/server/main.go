@@ -4,23 +4,16 @@ import (
 	"log"
 	"payment-service/internal/bootstrap"
 	"payment-service/internal/config"
-	"payment-service/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 )
 
 func main() {
-	config.LoadConfig()
-	addr := viper.GetString("addr")
-	//port := viper.GetInt("port")
-	db, err := bootstrap.InitDB()
+	cfg := config.LoadConfig()
+
+	db, err := bootstrap.InitDB(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalln(models.ErrFailedConnectDB)
-	}
-	err = bootstrap.Migration(db)
-	if err != nil {
-		log.Fatalln(models.ErrFailedMigrateDB)
+		log.Fatalln("Could not connect to database:", err)
 	}
 
 	r := gin.Default()
@@ -31,5 +24,8 @@ func main() {
 		})
 	})
 
-	r.Run(addr)
+	err = r.Run(cfg.Port)
+	if err != nil {
+		return
+	}
 }

@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-
+	"errors"
 	"user-service/internal/models"
 	"user-service/pkg/logger"
 
@@ -74,6 +74,14 @@ func (r userRepository) FindByEmail(ctx context.Context, email string) (*models.
 		}).Error("failed to find user by email")
 	}
 
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		logger.Log.WithFields(logrus.Fields{
+			"Error :":      "Cannot Find User",
+			"User Email :": email,
+			"Operation :":  "FindByEmail",
+		}).Error("failed to find user by email")
+		return nil, result.Error
+	}
 	logger.Log.WithFields(logrus.Fields{
 		"Info :":      "User Find Successfully",
 		"Operation :": "FindByEmail",
@@ -95,6 +103,14 @@ func (r userRepository) FindByID(ctx context.Context, id uint) (*models.User, er
 		}).Error("failed to find user by id")
 	}
 
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		logger.Log.WithFields(logrus.Fields{
+			"Error :":     "Cannot Find User",
+			"User ID :":   id,
+			"Operation :": "FindByID",
+		}).Error("failed to find user by id")
+	}
+
 	logger.Log.WithFields(logrus.Fields{
 		"Info :":      "User Find Successfully",
 		"Operation :": "FindByID",
@@ -112,6 +128,14 @@ func (r userRepository) Update(ctx context.Context, user *models.User) error {
 			"User Info :":   user,
 			"Operation :":   "UpdateUser",
 			"ErrorDetail :": result.Error,
+		}).Error("failed to update user")
+	}
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		logger.Log.WithFields(logrus.Fields{
+			"Error :":     "Cannot Update User",
+			"User Info :": user,
+			"Operation :": "UpdateUser",
 		}).Error("failed to update user")
 	}
 

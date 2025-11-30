@@ -8,6 +8,7 @@ import (
 type PaymentRepository interface {
 	Create(ctx context.Context, payment *models.Payment) error
 	GetByID(ctx context.Context, ID uint) (*models.Payment, error)
-	UpdateStatus(ctx context.Context, ID uint, status string) error
-	GetFeeStruct(ctx context.Context) (*models.FeeStructure, error)
+	GetByUserID(ctx context.Context, userID uint) ([]models.Payment, error)
+	UpdateStatus(ctx context.Context, id uint, status string) error
+	UpdateGatewayTransactionID(ctx context.Context, id uint, gatewayID string) error
 }

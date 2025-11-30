@@ -1,8 +1,6 @@
 package models
 
 import (
-	"time"
-
 	"gorm.io/gorm"
 )
 
@@ -17,23 +15,12 @@ type Payment struct {
 	GateWayTransactionID string
 }
 
-type FeeStructure struct {
-	ID         uint `gorm:"primary_key"`
-	Percentage float64
-	MinFee     float64
-	CreatedAt  time.Time
+type CreatePaymentRequest struct {
+	Amount      float64 `json:"amount"`
+	Description string  `json:"description"`
 }
-
 type FeeStructure struct {
 	ID         uint `gorm:"primary_key"`
 	Percentage float64
 	MinFee     float64
-	CreatedAt  time.Time
-}
-
-type FeeStructure struct {
-	ID         uint `gorm:"primary_key"`
-	Percentage float64
-	MinFee     float64
-	CreatedAt  time.Time
 }

@@ -1,18 +1,40 @@
 package config
 
 import (
-	"log"
-
-	"github.com/spf13/viper"
+	"os"
+	"time"
 )
 
-func LoadConfig() {
-	viper.AddConfigPath("~/rail-road-webApp/payment-service/internal/config")
-	viper.SetConfigName("app")
-	viper.SetConfigType("env")
-	viper.AutomaticEnv()
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Fatalf("Error reading config file, %s", err)
+type Config struct {
+	DatabaseURL           string
+	Port                  string
+	UserServiceAddr       string
+	RabbitMQURL           string
+	OpenTelemetryEndpoint string
+	WebSocketPort         string
+	FeePercentage         float64
+	MinFee                float64
+}
+
+func LoadConfig() *Config {
+	return &Config{
+		DatabaseURL: getenv("database_URL", "host=localhost user=postgres dbname=payment_service port=5432 sslmode=disable"),
+		Port:        getenv("PORT", "8081"),
 	}
+}
+
+func getenv(key, defaultVal string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return defaultVal
+}
+
+func getdurationfromenv(key string, defaultval time.Duration) time.Duration {
+	if val := os.Getenv(key); val != "" {
+		if duration, err := time.ParseDuration(val); err == nil {
+			return duration
+		}
+	}
+	return defaultval
 }

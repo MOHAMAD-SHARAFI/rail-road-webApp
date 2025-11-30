@@ -2,41 +2,35 @@ package utils
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt"
 )
 
 type JWTClaims struct {
-	jwt.StandardClaims
-	UserID uint
-	ID     uint
+	*jwt.StandardClaims
 }
 
-func GenerateToken(secret string, userID uint, exp time.Duration) (string, time.Time, error) {
-	expTime := time.Now().Add(exp)
+func GenerateToken(secret string, userID string, exp time.Duration) (tokenKey string, expTime time.Time, err error) {
+	expTime = time.Now().Local().Add(exp)
 
 	claims := &JWTClaims{
-		UserID: userID,
-		StandardClaims: jwt.StandardClaims{
+		&jwt.StandardClaims{
 			ExpiresAt: expTime.Unix(),
-			IssuedAt:  time.Now().Unix(),
-			Subject:   strconv.FormatUint(uint64(userID), 10), // convert userID to string
+			Id:        userID,
 		},
 	}
 
 	//	Create Token With Claims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(secret))
-	if err != nil {
-		return "", time.Time{}, err
+	if tokenKey, err = token.SignedString([]byte(secret)); err != nil {
+		return
 	}
 
-	return tokenString, expTime, nil
+	return
 }
 
-func ValidateToken(tokenString string, secret string) (uint, error) {
+func ValidateToken(tokenString string, secret string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		//	Ensure The Singing Method Is As Expected
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -46,13 +40,13 @@ func ValidateToken(tokenString string, secret string) (uint, error) {
 	})
 
 	if err != nil {
-		return 0, fmt.Errorf("error parsing token: %w", err)
+		return nil, fmt.Errorf("error parsing token: %w", err)
 	}
 
 	//	Validate Token And Extract Claims
 	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
-		return claims.ID, nil
+		return claims, nil
 	}
 
-	return 0, fmt.Errorf("invalid token")
+	return nil, fmt.Errorf("invalid token")
 }

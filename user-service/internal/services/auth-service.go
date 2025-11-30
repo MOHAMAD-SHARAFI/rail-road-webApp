@@ -3,8 +3,12 @@ package services
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
+
+	usr "user-service/internal/domain/user"
 	"user-service/internal/models"
+	"user-service/internal/pkg/events"
 	"user-service/internal/repositories"
 	"user-service/pkg/logger"
 	"user-service/pkg/utils"
@@ -14,28 +18,31 @@ import (
 
 type AuthService struct {
 	userRepo           repositories.UserRepository
-	tokenRepo          repositories.TokenRepository
+	refreshTokenRepo   repositories.RefreshTokenRepository
 	jwtSecret          string
 	refreshTokenSecret string
 	accessTokenExpiry  time.Duration
 	refreshTokenExpiry time.Duration
+	eventDispatcher    events.EventDispatcher
 }
 
 func NewAuthService(
 	userRepo repositories.UserRepository,
-	tokenRepo repositories.TokenRepository,
+	refreshTokenRepo repositories.RefreshTokenRepository,
 	jwtSecret string,
 	refreshTokenSecret string,
 	accessTokenExpiry time.Duration,
 	refreshTokenExpiry time.Duration,
+	eventDispatcher events.EventDispatcher,
 ) *AuthService {
 	return &AuthService{
 		userRepo:           userRepo,
-		tokenRepo:          tokenRepo,
+		refreshTokenRepo:   refreshTokenRepo,
 		jwtSecret:          jwtSecret,
 		refreshTokenSecret: refreshTokenSecret,
 		accessTokenExpiry:  accessTokenExpiry,
 		refreshTokenExpiry: refreshTokenExpiry,
+		eventDispatcher:    eventDispatcher,
 	}
 }
 
@@ -63,6 +70,7 @@ func (a *AuthService) SignUp(ctx context.Context, username, email, password stri
 		}).Warn("Registration Failed -> user with this username already exists")
 		return nil, errors.New("user with this username already exist")
 	}
+
 	//hash password
 	hashedPassword := utils.HashPassword(password)
 
@@ -98,8 +106,17 @@ func (a *AuthService) SignUp(ctx context.Context, username, email, password stri
 		"email":       email,
 		"user_id":     user.ID,
 	}).Info("user registered successfully")
-
+	event := usr.NewUserRegisteredEvent(user.ID, username, email)
+	err := a.eventDispatcher.Dispatch(ctx, event)
+	if err != nil {
+		logger.Log.WithFields(logrus.Fields{
+			"Operation :": "SignUp",
+			"user-ID":     user.ID,
+			"Error":       err.Error(),
+		}).Warn("Failed to dispatch user registered event")
+	}
 	return response, nil
+
 }
 
 func (a *AuthService) SignIn(ctx context.Context, username, password string) (*models.SignInResponse, error) {
@@ -131,7 +148,7 @@ func (a *AuthService) SignIn(ctx context.Context, username, password string) (*m
 	}
 
 	//	Generate access token
-	accessToken, accessExp, err := utils.GenerateToken(a.jwtSecret, user.ID, a.accessTokenExpiry)
+	accessToken, accessExp, err := utils.GenerateToken(a.jwtSecret, strconv.Itoa(int(user.ID)), a.accessTokenExpiry)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "SignIn",
@@ -142,7 +159,7 @@ func (a *AuthService) SignIn(ctx context.Context, username, password string) (*m
 	}
 
 	//	Generate refresh token
-	refreshToken, refreshExp, err := utils.GenerateToken(a.refreshTokenSecret, user.ID, a.refreshTokenExpiry)
+	refreshToken, refreshExp, err := utils.GenerateToken(a.refreshTokenSecret, strconv.Itoa(int(user.ID)), a.refreshTokenExpiry)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "SignIn",
@@ -153,13 +170,15 @@ func (a *AuthService) SignIn(ctx context.Context, username, password string) (*m
 	}
 
 	// Save refresh token to database
-	resetToken := &models.PasswordResetToken{
+	refreshTokenModel := models.RefreshToken{
 		UserID:    user.ID,
 		Token:     refreshToken,
 		ExpiresAt: refreshExp,
+		CreatedAt: time.Now(),
 	}
 
-	if err := a.tokenRepo.CreatePasswordResetToken(ctx, resetToken); err != nil {
+	err = a.refreshTokenRepo.Create(ctx, &refreshTokenModel)
+	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "SignIn",
 			"User-Id":     user.ID,
@@ -176,6 +195,16 @@ func (a *AuthService) SignIn(ctx context.Context, username, password string) (*m
 		UserID:       user.ID,
 	}
 
+	usersignedInEvent := usr.NewUserSignedInEvent(user.ID, username)
+	err = a.eventDispatcher.Dispatch(ctx, usersignedInEvent)
+	if err != nil {
+		logger.Log.WithFields(logrus.Fields{
+			"Operation :": "SignIn",
+			"User-Id":     user.ID,
+			"Error":       err.Error(),
+		}).Warn("Failed to dispatch user signed in event")
+	}
+
 	logger.Log.WithFields(logrus.Fields{
 		"Operation :": "SignIn",
 		"user-id":     user.ID,
@@ -190,7 +219,7 @@ func (a *AuthService) ValidateToken(ctx context.Context, token string) (*models.
 		"Operation :": "ValidateToken",
 	}).Debug("Starting token validation")
 
-	userID, err := utils.ValidateToken(token, a.jwtSecret)
+	claims, err := utils.ValidateToken(token, a.jwtSecret)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "ValidateToken",
@@ -200,7 +229,11 @@ func (a *AuthService) ValidateToken(ctx context.Context, token string) (*models.
 	}
 
 	// Find user by ID
-	user, err := a.userRepo.FindByID(ctx, userID)
+	claimsuint, err := strconv.ParseUint(claims.Id, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	user, err := a.userRepo.FindByID(ctx, claimsuint)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "ValidateToken",
@@ -228,7 +261,7 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*m
 		"Operation :": "RefreshToken",
 	}).Info("Starting token refresh")
 
-	userID, err := utils.ValidateToken(refreshToken, a.refreshTokenSecret)
+	claims, err := utils.ValidateToken(refreshToken, a.refreshTokenSecret)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "RefreshToken",
@@ -238,11 +271,11 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*m
 	}
 
 	//Find the refresh Token in database
-	token, err := a.tokenRepo.FindValidPasswordResetToken(ctx, userID, refreshToken)
+	token, err := a.refreshTokenRepo.FindByToken(ctx, refreshToken)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "RefreshToken",
-			"user-id":     userID,
+			"user-id":     claims.Id,
 			"error :":     "token not found in database",
 		}).Warn("refresh token not found in database")
 		return nil, errors.New("invalid refresh token")
@@ -252,18 +285,18 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*m
 	if time.Now().After(token.ExpiresAt) {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "RefreshToken",
-			"user-id":     userID,
+			"user-id":     claims.Id,
 			"token-id":    token.ID,
 		}).Warn("refresh token expired")
 		return nil, errors.New("refresh token expired")
 	}
 
 	// Generate new access token
-	accessToken, accessExp, err := utils.GenerateToken(a.jwtSecret, userID, a.accessTokenExpiry)
+	accessToken, accessExp, err := utils.GenerateToken(a.jwtSecret, claims.Id, a.accessTokenExpiry)
 	if err != nil {
 		logger.Log.WithFields(logrus.Fields{
 			"Operation :": "RefreshToken",
-			"user-id":     userID,
+			"user-id":     claims.Id,
 			"error :":     err.Error(),
 		}).Error("failed to generate new access token")
 		return nil, err
@@ -271,7 +304,7 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*m
 
 	logger.Log.WithFields(logrus.Fields{
 		"Operation :": "RefreshToken",
-		"user-id":     userID,
+		"user-id":     claims.Id,
 	}).Info("Token refreshed successfully")
 
 	return &models.RefreshTokenResponse{

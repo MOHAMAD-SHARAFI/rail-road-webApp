@@ -3,11 +3,11 @@ package utils
 import "golang.org/x/crypto/bcrypt"
 
 func HashPassword(pass string) string {
-	bytePass := []byte(pass)
-	hPass, _ := bcrypt.GenerateFromPassword(bytePass, bcrypt.DefaultCost)
-	return string(hPass)
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	return string(bytes)
 }
 
-func ComparePassword(dbpass, pass string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(dbpass), []byte(pass)) == nil
+func ComparePassword(hashedPassword, password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	return err == nil
 }
